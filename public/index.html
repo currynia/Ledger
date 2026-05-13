@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Ledger</title>
+</head>
+
+<body>
+    <H3>Create Account</H3>
+
+    <label for="accId">Account ID:</label><br>
+    <input type="text" id="accId" name="accId"><br>
+    <button type="submit" onclick="createAccount()">Create Account</button><br>
+
+
+    <H3>Transactions</H3>
+
+    <label for="srcAccId">Source Account ID:</label><br>
+    <input type="text" id="srcAccId" name="srcAccId"><br>
+    <label for="destAccId">Destination Account ID:</label><br>
+    <input type="text" id="destAccId" name="destAccId"><br>
+    <label for="transferAmt">Transfer Amt:</label><br>
+    <input type="text" id="transferAmt" name="transferAmt"><br>
+    <button type="submit" onclick="transfer()">Transfer</button><br>
+
+    <H3>Reverse Transaction</H3>
+    <label for="transactionId">Transaction ID</label><br>
+    <input type="text" id="transactionId" name="transactionId"><br>
+    <button type="submit" onclick="reverse()">Reverse</button><br>
+
+    <H3>Query Balance & Transactions History</H3>
+
+    <label for="accQId">Acccount ID:</label><br>
+    <input type="text" id="accQId" name="accQId"><br>
+    <button type="submit" onclick="queryBalance()">Query Acccount ID balance</button>
+    <button type="submit" onclick="queryTxHistory()">Query Acccount ID transactions</button><br>
+
+    <H3>Verify</H3>
+    <button type="submit" onclick="verify()">Verify</button>
+
+
+    <br><br>
+    <H3>Results</H3><br>
+    <p id="result"></p>
+    <script>
+        async function verify() {
+            const res = await fetch(`/transactions/verify`, {
+                method: "GET",
+            });
+        }
+
+        async function reverse() {
+            const transactionId = document.getElementById("transactionId").value;
+            const res = await fetch(`/transactions/reverse`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ transactionId }),
+            });
+            let text = ''
+            if (res.status == 400) {
+                text = `Negative balance. Aborting.`
+
+            } else if (res.status == 200) {
+                const { srcacc, dstacc, amount, transactiontime } = await res.json()
+                text = `Reversed transaction where Account ${srcacc} transferred ${amount} to Account  ${dstacc}.`;
+            } else if (res.status == 404) {
+                text = `No transaction ID found.`
+            }
+            else { text = `Unknown error occured.` }
+            document.getElementById("result").innerText = text;
+        }
+
+        async function transfer() {
+            const srcAccId = document.getElementById("srcAccId").value;
+            const destAccId = document.getElementById("destAccId").value;
+            const transferAmt = document.getElementById("transferAmt").value;
+            const res = await fetch(`/transactions`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ srcAccId, destAccId, transferAmt }),
+            });
+            if (res.status == 400) {
+                document.getElementById("result").innerText = `Negative balance. Aborting.`;
+            } else if (res.status == 200) {
+                const { srcacc, dstacc, amount, transactiontime } = await res.json()
+                document.getElementById("result").innerText = `Account ${srcacc} transferred ${amount} to Account  ${dstacc} at ${transactiontime}`;
+            } else { document.getElementById("result").innerText = `Unknown error occured.` }
+
+        }
+
+        async function createAccount() {
+            const accId = document.getElementById("accId").value;
+            const res = await fetch(`/create`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ accId: accId }),
+            });
+            if (res.status == 200) {
+                const data = await res.json()
+                document.getElementById("result").innerText = `Account ${data.id} created with balance ${data.balance}`;
+            } else if (res.status == 400) {
+                document.getElementById("result").innerText = "Account exists. Skipping."
+            } else {
+                document.getElementById("result").innerText = "Unknown error occured."
+            }
+
+        }
+
+        async function queryBalance() {
+            const accId = document.getElementById("accQId").value;
+            const res = await fetch(`/accounts/${encodeURIComponent(accId)}`, {
+                method: "GET",
+            });
+
+            const { id, balance } = await res.json();
+            document.getElementById("result").innerText = `Account ${id} has ${balance}.`;
+        }
+
+        async function queryTxHistory() {
+            const accId = document.getElementById("accQId").value;
+
+            const res = await fetch(`/accounts/${encodeURIComponent(accId)}/transactions`, {
+                method: "GET",
+            });
+            const data = await res.json();
+
+            document.getElementById("result").innerHTML =
+                `<ul>
+    ${data.map(item => `
+      <li>${Object.entries(item)
+                        .map(([k, v]) => `<strong>${k}</strong>: ${v}`)
+                        .join(" | ")}</li>
+    `).join("")}
+  </ul>`;
+        }
+    </script>
+</body>
+
+</html>
