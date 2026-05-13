@@ -1,5 +1,5 @@
 Requirements: node, Postgres17
-
+Assumptions: Each account starts with a balance of 1000 upon creation.
 
 ### Installing dependencies
 ```
